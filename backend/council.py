@@ -291,12 +291,21 @@ Return ONLY valid JSON:
     }
 
 
-async def stage2_collect_rankings(
+async def stage2_debate_rounds(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    on_round_complete=None,
+):
     """
     Stage 2: run debate rounds until consensus (or fallback coordinator decision).
+
+    Yields round results via the on_round_complete callback for streaming, then
+    returns the final (debate_entries, metadata) tuple.
+
+    Args:
+        user_query: The user's question
+        stage1_results: Stage 1 results
+        on_round_complete: Optional async callback(round_data) called after each round
 
     Returns:
         Tuple of (final round debate entries, consensus metadata)
@@ -324,12 +333,21 @@ async def stage2_collect_rankings(
             round_entries.append(_parse_debate_response(model, raw_text))
 
         final_round_entries = round_entries
-        round_history.append({
+        round_data = {
             "round": round_number,
             "entries": round_entries,
-        })
+        }
+        round_history.append(round_data)
 
         round_consensus = _derive_consensus(round_entries)
+
+        if on_round_complete:
+            await on_round_complete({
+                **round_data,
+                "consensus_snapshot": round_consensus,
+                "max_rounds": CONSENSUS_MAX_ROUNDS,
+            })
+
         if round_consensus["consensus_reached"]:
             consensus_reached = True
             consensus_plan = round_consensus["consensus_plan"]
@@ -356,6 +374,14 @@ async def stage2_collect_rankings(
         "round_history": round_history,
     }
     return final_round_entries, metadata
+
+
+async def stage2_collect_rankings(
+    user_query: str,
+    stage1_results: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Non-streaming wrapper for stage2_debate_rounds (used by non-streaming endpoint)."""
+    return await stage2_debate_rounds(user_query, stage1_results)
 
 
 async def stage3_synthesize_final(
@@ -481,39 +507,24 @@ def calculate_aggregate_rankings(
 async def generate_conversation_title(user_query: str) -> str:
     """
     Generate a short title for a conversation based on the first user message.
-
-    Args:
-        user_query: The first user message
-
-    Returns:
-        A short title (3-5 words)
     """
-    title_prompt = f"""Generate a very short title (3-5 words maximum) that summarizes the following question.
-The title should be concise and descriptive. Do not use quotes or punctuation in the title.
-
-Question: {user_query}
-
-Title:"""
-
+    title_prompt = (
+        "Generate a very short title (3-5 words maximum) that summarizes the following question. "
+        "The title should be concise and descriptive. Do not use quotes or punctuation in the title.\n\n"
+        f"Question: {user_query}\n\nTitle:"
+    )
     messages = [{"role": "user", "content": title_prompt}]
 
-    # Use gemini-2.5-flash for title generation (fast and cheap)
-    response = await query_model("google/gemini-2.5-flash", messages, timeout=30.0)
+    # Try fast/cheap model first, then fall back to first council model
+    for model in ["google/gemini-2.5-flash", COUNCIL_MODELS[0]]:
+        response = await query_model(model, messages, timeout=30.0)
+        if response and response.get("content"):
+            title = response["content"].strip().strip('"\'')
+            if len(title) > 50:
+                title = title[:47] + "..."
+            return title
 
-    if response is None:
-        # Fallback to a generic title
-        return "New Conversation"
-
-    title = response.get('content', 'New Conversation').strip()
-
-    # Clean up the title - remove quotes, limit length
-    title = title.strip('"\'')
-
-    # Truncate if too long
-    if len(title) > 50:
-        title = title[:47] + "..."
-
-    return title
+    return "New Conversation"
 
 
 async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:

@@ -161,3 +161,14 @@
   background: #ccc;
   border-color: #ccc;
 }
+
+.error-message {
+  margin: 12px 0;
+  padding: 14px 18px;
+  background: #fff5f5;
+  border: 1px solid #e8b4b4;
+  border-radius: 8px;
+  color: #a02020;
+  font-size: 14px;
+  line-height: 1.5;
+}
