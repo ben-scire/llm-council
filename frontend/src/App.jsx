@@ -10,18 +10,6 @@ function App() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load conversations on mount
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  // Load conversation details when selected
-  useEffect(() => {
-    if (currentConversationId) {
-      loadConversation(currentConversationId);
-    }
-  }, [currentConversationId]);
-
   const loadConversations = async () => {
     try {
       const convs = await api.listConversations();
@@ -39,6 +27,25 @@ function App() {
       console.error('Failed to load conversation:', error);
     }
   };
+
+  // Load conversations on mount
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadConversations();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  // Load conversation details when selected
+  useEffect(() => {
+    if (currentConversationId) {
+      const timeoutId = setTimeout(() => {
+        loadConversation(currentConversationId);
+      }, 0);
+      return () => clearTimeout(timeoutId);
+    }
+    return undefined;
+  }, [currentConversationId]);
 
   const handleNewConversation = async () => {
     try {

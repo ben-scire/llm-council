@@ -139,8 +139,8 @@ def add_assistant_message(
     Args:
         conversation_id: Conversation identifier
         stage1: List of individual model responses
-        stage2: List of model rankings
-        stage3: Final synthesized response
+        stage2: List of debate outputs
+        stage3: Final execution-integrated response
     """
     conversation = get_conversation(conversation_id)
     if conversation is None:

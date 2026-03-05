@@ -9,15 +9,21 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # Council members - list of OpenRouter model identifiers
+# These defaults represent the 6-model debate methodology.
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
+    "openai/gpt-5.2",
+    "openai/codex-5.3",
+    "anthropic/claude-opus-4.6",
+    "anthropic/claude-sonnet-4.6",
+    "google/gemini-3-pro",
     "x-ai/grok-4",
 ]
 
-# Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+# Coordinator model - used only as a fallback to force consensus
+EXECUTION_COORDINATOR_MODEL = "openai/gpt-5.2"
+
+# Maximum number of debate rounds before coordinator fallback
+CONSENSUS_MAX_ROUNDS = 4
 
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"

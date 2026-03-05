@@ -23,3 +23,36 @@
   line-height: 1.7;
   font-size: 15px;
 }
+
+.execution-outputs {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #d9edd9;
+}
+
+.execution-outputs h4 {
+  margin: 0 0 12px 0;
+  color: #2d8a2d;
+  font-size: 14px;
+}
+
+.execution-item {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #d9edd9;
+  border-radius: 6px;
+  background: #f9fff9;
+}
+
+.execution-label {
+  font-size: 12px;
+  font-family: monospace;
+  color: #2d8a2d;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.execution-text {
+  color: #333;
+  font-size: 14px;
+}
