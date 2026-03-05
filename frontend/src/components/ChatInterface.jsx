@@ -85,13 +85,19 @@ export default function ChatInterface({
                   {msg.loading?.stage2 && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 2: Debate and consensus...</span>
+                      <span>
+                        Running Stage 2: Debate and consensus...
+                        {msg.stage2_rounds?.length > 0 && (
+                          <> (Round {msg.stage2_rounds.length} of {msg.stage2_rounds[0]?.max_rounds || '?'} complete)</>
+                        )}
+                      </span>
                     </div>
                   )}
                   {msg.stage2 && (
                     <Stage2
                       debates={msg.stage2}
                       metadata={msg.metadata}
+                      rounds={msg.stage2_rounds}
                     />
                   )}
 
@@ -103,6 +109,12 @@ export default function ChatInterface({
                     </div>
                   )}
                   {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
+
+                  {msg.error && (
+                    <div className="error-message">
+                      <strong>Error:</strong> {msg.error}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -119,26 +131,24 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {conversation.messages.length === 0 && (
-        <form className="input-form" onSubmit={handleSubmit}>
-          <textarea
-            className="message-input"
-            placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            rows={3}
-          />
-          <button
-            type="submit"
-            className="send-button"
-            disabled={!input.trim() || isLoading}
-          >
-            Send
-          </button>
-        </form>
-      )}
+      <form className="input-form" onSubmit={handleSubmit}>
+        <textarea
+          className="message-input"
+          placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+          rows={3}
+        />
+        <button
+          type="submit"
+          className="send-button"
+          disabled={!input.trim() || isLoading}
+        >
+          Send
+        </button>
+      </form>
     </div>
   );
 }

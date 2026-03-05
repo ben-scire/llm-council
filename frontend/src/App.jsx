@@ -76,13 +76,14 @@ function App() {
         messages: [...prev.messages, userMessage],
       }));
 
-      // Create a partial assistant message that will be updated progressively
       const assistantMessage = {
         role: 'assistant',
         stage1: null,
         stage2: null,
+        stage2_rounds: [],
         stage3: null,
         metadata: null,
+        error: null,
         loading: {
           stage1: false,
           stage2: false,
@@ -123,6 +124,16 @@ function App() {
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
               lastMsg.loading.stage2 = true;
+              lastMsg.stage2_rounds = [];
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'stage2_round':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.stage2_rounds = [...(lastMsg.stage2_rounds || []), event.data];
               return { ...prev, messages };
             });
             break;
@@ -170,6 +181,13 @@ function App() {
 
           case 'error':
             console.error('Stream error:', event.message);
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.error = event.message;
+              lastMsg.loading = { stage1: false, stage2: false, stage3: false };
+              return { ...prev, messages };
+            });
             setIsLoading(false);
             break;
 

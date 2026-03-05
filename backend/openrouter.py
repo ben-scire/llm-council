@@ -31,6 +31,10 @@ async def query_model(
         "messages": messages,
     }
 
+    if not OPENROUTER_API_KEY:
+        print(f"Skipping {model}: OPENROUTER_API_KEY not set")
+        return None
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
@@ -48,6 +52,10 @@ async def query_model(
                 'reasoning_details': message.get('reasoning_details')
             }
 
+    except httpx.HTTPStatusError as e:
+        body = e.response.text[:300] if e.response else ""
+        print(f"HTTP {e.response.status_code} from {model}: {body}")
+        return None
     except Exception as e:
         print(f"Error querying model {model}: {e}")
         return None

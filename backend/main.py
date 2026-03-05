@@ -10,15 +10,29 @@ import json
 import asyncio
 
 from . import storage
+from .config import OPENROUTER_API_KEY, COUNCIL_MODELS
 from .council import (
     run_full_council,
     generate_conversation_title,
     stage1_collect_responses,
-    stage2_collect_rankings,
+    stage2_debate_rounds,
     stage3_synthesize_final,
 )
 
 app = FastAPI(title="LLM Council API")
+
+
+@app.on_event("startup")
+async def startup_check():
+    if not OPENROUTER_API_KEY:
+        print(
+            "\n*** WARNING: OPENROUTER_API_KEY is not set. ***\n"
+            "Create a .env file in the project root with:\n"
+            "  OPENROUTER_API_KEY=sk-or-v1-...\n"
+        )
+    else:
+        print(f"Council models: {', '.join(m.split('/')[-1] for m in COUNCIL_MODELS)}")
+        print("LLM Council backend ready.")
 
 # Enable CORS for local development
 app.add_middleware(
@@ -158,9 +172,37 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             stage1_results = await stage1_collect_responses(request.content)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
-            # Stage 2: Debate and consensus
+            # Stage 2: Debate rounds with per-round streaming via queue
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, stage2_metadata = await stage2_collect_rankings(request.content, stage1_results)
+
+            queue: asyncio.Queue = asyncio.Queue()
+            _SENTINEL = object()
+
+            async def on_round_complete(round_data):
+                await queue.put(round_data)
+
+            async def run_stage2():
+                try:
+                    result = await stage2_debate_rounds(
+                        request.content,
+                        stage1_results,
+                        on_round_complete=on_round_complete,
+                    )
+                    await queue.put(_SENTINEL)
+                    return result
+                except Exception as exc:
+                    await queue.put(_SENTINEL)
+                    raise exc
+
+            stage2_task = asyncio.create_task(run_stage2())
+
+            while True:
+                item = await queue.get()
+                if item is _SENTINEL:
+                    break
+                yield f"data: {json.dumps({'type': 'stage2_round', 'data': item})}\n\n"
+
+            stage2_results, stage2_metadata = await stage2_task
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': stage2_metadata})}\n\n"
 
             # Stage 3: Execute and synthesize final answer
@@ -191,7 +233,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
 
         except Exception as e:
-            # Send error event
+            import traceback
+            traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(
